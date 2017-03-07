@@ -1,0 +1,14 @@
+cd ~/cs3231/asst0-src
+./configure
+
+cd ~/cs3231/asst0-src/kern/conf
+./config ASST0
+
+cd ~/cs3231/asst0-src/kern/compile/ASST0
+bmake depend
+bmake
+
+bmake install
+
+cd ~/cs3231/asst0-src
+bmake
