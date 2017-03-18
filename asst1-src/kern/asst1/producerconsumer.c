@@ -64,12 +64,9 @@
 	void producerconsumer_startup(void)
 	{
 		
-		const char a = 'm';
-		const char b = 'e';
-		const char c = 'f';
-		mutex = sem_create(&a, 1);
-		empty = sem_create(&b, BUFFER_SIZE);
-		full = sem_create(&c, 0);
+		mutex = sem_create("mutex", 1);
+		empty = sem_create("empty", BUFFER_SIZE);
+		full = sem_create("full", 0);
 		
 	}
 
