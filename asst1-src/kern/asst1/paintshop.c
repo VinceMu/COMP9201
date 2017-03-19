@@ -15,6 +15,24 @@
  */
 
 /* Declare any globals you need here (e.g. locks, etc...) */
+#define ORDER_BUFFER_SIZE 10
+#define SHIP_BUFFER_SIZE 10
+
+static struct semaphore *order_mutex, *order_empty, *order_full;
+
+static struct semaphore *ship_mutex, *ship_empty, *ship_full;
+
+static struct semaphore *tints_mutex;
+
+int custom_number = NCUSTOMERS;
+
+static struct buffer{
+	struct paintorder elements[ORDER_BUFFER_SIZE];
+	int first; /* buf[first%BUFF_SIZE] is the first empty slot  */
+	int last; //buf[last%BUFF_SIZE] is the first full slot  
+};
+
+struct buffer order_buffer, ship_buffer;
 
 
 /*
@@ -34,8 +52,14 @@
 
 void order_paint(struct paintorder *order)
 {
-        (void) order; /* Avoid compiler warning, remove when used */
-        panic("You need to write some code!!!!\n");
+	P(order_empty);
+	P(order_mutex);
+	
+	order_buffer.elements[order_buffer.first] = *order;
+	order_buffer.first = (order_buffer.first + 1) % ORDER_BUFFER_SIZE;
+	
+	V(order_mutex);
+	V(order_full);
 }
 
 
@@ -56,9 +80,20 @@ void order_paint(struct paintorder *order)
 
 struct paintorder *take_order(void)
 {
-        struct paintorder *ret = NULL;
-
-        return ret;
+    P(order_full);
+	P(order_mutex);
+	struct paintorder *ret = order_buffer.elements[order_buffer.last];
+	if(order_buffer.elements[order_buffer.last].go_home_flag == 1){
+		custom_number--;
+		if(custom_number == 0){
+			ret = NULL;
+		}
+	}
+	order_buffer.last = (order_buffer.last + 1) % ORDER_BUFFER_SIZE;
+	
+	V(order_mutex);
+	V(order_empty);
+    return ret;
 }
 
 
@@ -75,13 +110,12 @@ struct paintorder *take_order(void)
 
 void fill_order(struct paintorder *order)
 {
-
-        /* add any sync primitives you need to ensure mutual exclusion
+    /* add any sync primitives you need to ensure mutual exclusion
            holds as described */
-
-        /* the call to mix must remain */
-        mix(order);
-
+	P(tints_mutex);
+    /* the call to mix must remain */
+    mix(order);
+	V(tints_mutex);
 }
 
 
@@ -94,8 +128,12 @@ void fill_order(struct paintorder *order)
 
 void serve_order(struct paintorder *order)
 {
-        (void) order; /* avoid a compiler warning, remove when you
-                         start */
+	P(ship_empty);
+	P(ship_mutex);
+	ship_buffer.elements[ship_buffer.first] = *order;
+	ship_buffer.first = (ship_buffer.first + 1) % SHIP_BUFFER_SIZE;
+	V(ship_mutex);
+	V(ship_full);
 }
 
 
@@ -115,9 +153,19 @@ void serve_order(struct paintorder *order)
  * synch primitive and variable.
  */
 
+ 
 void paintshop_open(void)
 {
-
+	order_mutex = sem_create("order_mutex", 1);
+	order_empty = sem_create("order_empty", ORDER_BUFFER_SIZE);
+	order_full = sem_create("order_full", 0);
+	
+	ship_empty = sem_create("ship_empty", SHIP_BUFFER_SIZE);
+	ship_full = sem_create("ship_full", 0);
+	ship_mutex = sem_create("ship_mutex", 1);
+	
+	tints_mutex = sem_create("tints_mutex", 1);
+	
 }
 
 /*
@@ -129,6 +177,13 @@ void paintshop_open(void)
 
 void paintshop_close(void)
 {
-
+	sem_destroy(order_mutex);
+	sem_destroy(order_empty);
+	sem_destroy(order_full);
+	sem_destroy(ship_empty);
+	sem_destroy(ship_full);
+	sem_destroy(ship_mutex);
+	sem_destroy(tints_mutex);
+	
 }
 
