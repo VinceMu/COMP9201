@@ -82,7 +82,7 @@ struct paintorder *take_order(void)
 {
     P(order_full);
 	P(order_mutex);
-	struct paintorder *ret = order_buffer.elements[order_buffer.last];
+	struct paintorder *ret = &order_buffer.elements[order_buffer.last];
 	if(order_buffer.elements[order_buffer.last].go_home_flag == 1){
 		custom_number--;
 		if(custom_number == 0){
