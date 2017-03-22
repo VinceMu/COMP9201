@@ -30,6 +30,8 @@ static struct semaphore *ship_mutex, *ship_empty, *ship_full;
 
 static struct lock *tints_lock[MAX];
 
+static const char* colours[10] = {"blue","green","yellow","magenta","orange","cyan","black","red","white","brown"};
+
 struct{
 	struct paintorder *elements[ORDER_BUFFER_SIZE];
 	int first; /* buf[first%BUFF_SIZE] is the first empty slot  */
@@ -138,16 +140,16 @@ void fill_order(struct paintorder *order)
 {
     /* add any sync primitives you need to ensure mutual exclusion
            holds as described */
-        unsigned int *list = order->requested_tints;
+        unsigned *list = order->requested_tints;
         /*sorting ascending order*/
         int temp;
         int i,j;
         bool swapped = false;
 
-        for(i = 0; i < MAX-1; i++) 
+        for(i = 0; i < PAINT_COMPLEXITY-1; i++) 
         { 
             swapped = false;
-            for(j = 0; j < MAX-1-i; j++) {           
+            for(j = 0; j < PAINT_COMPLEXITY-1-i; j++) {           
                 if(list[j] > list[j+1]) {
                     temp = list[j];
                     list[j] = list[j+1];
@@ -159,6 +161,7 @@ void fill_order(struct paintorder *order)
                 break;
             }
         }
+
         /* try to get the tint from 1 to 10 */
         for (int i = 0; i < PAINT_COMPLEXITY; ++i)
         {
@@ -232,9 +235,8 @@ void paintshop_open(void)
 	ship_full = sem_create("ship_full", 0);
 	ship_mutex = sem_create("ship_mutex", 1);
 
-	for (int i = 0; i < MAX; ++i)
-	{
-		tints_lock[i] = lock_create(char(i));
+	for (int i = 0; i < MAX; ++i){
+    	tints_lock[i] = lock_create(colours[i]);
 	}
 
 }
@@ -256,6 +258,6 @@ void paintshop_close(void)
 	sem_destroy(ship_mutex);
 	for (int i = 0; i < MAX; ++i)
 	{
-		lock_destory(tints_lock[i]);
+		lock_destroy(tints_lock[i]);
 	}
 }
