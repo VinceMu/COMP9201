@@ -76,7 +76,6 @@ void order_paint(struct paintorder *order)
 		P(ship_mutex);
 
 		for(int i=0;i<SHIP_BUFFER_SIZE;i++){
-			//kprintf("ship_buffer:%p vs order: %p \t", ship_buffer[i], order);
 			if(ship_buffer[i] == order){
 				ship_buffer[i] = NULL;
 				found = TRUE;
@@ -165,13 +164,15 @@ void fill_order(struct paintorder *order)
         /* try to get the tint from 1 to 10 */
         for (int i = 0; i < PAINT_COMPLEXITY; ++i)
         {
-            lock_acquire(tints_lock[list[i]-1]);
+            if (list[i]!=0)
+		{lock_acquire(tints_lock[list[i]-1]);}
         }
         /* release tints after use */
         mix(order);
         for (int i = 0; i < PAINT_COMPLEXITY; ++i)
         {
-            lock_release(tints_lock[list[i]-1]);
+            if (list[i]!=0)
+		{lock_release(tints_lock[list[i]-1]);}
         }
 }
 
@@ -258,6 +259,6 @@ void paintshop_close(void)
 	sem_destroy(ship_mutex);
 	for (int i = 0; i < MAX; ++i)
 	{
-		lock_destroy(tints_lock[i]);
+	lock_destroy(tints_lock[i]);
 	}
 }
