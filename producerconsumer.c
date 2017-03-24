@@ -26,17 +26,17 @@
 
 	struct pc_data consumer_receive(void)
 	{
-			struct pc_data thedata;
+		struct pc_data thedata;
 			 
-			P(full);
-			P(mutex);
+		P(full);
+		P(mutex);
 			
-			thedata = buffer.elements[buffer.first];
-			buffer.first = (buffer.first + 1)%BUFFER_SIZE;
+		thedata = buffer.elements[buffer.first];
+		buffer.first = (buffer.first + 1)%BUFFER_SIZE;
 			
-			V(mutex);
-			V(empty);
-			return thedata;		
+		V(mutex);
+		V(empty);
+		return thedata;		
 	}
 
 
