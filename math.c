@@ -77,6 +77,8 @@ static void adder(void * unusedpointer, unsigned long addernumber)
         while (flag) {
                 /* loop doing increments until we achieve the overall number
                    of increments */
+
+                /* acquire lock before entering counter */
                 lock_acquire(lock_c);
                 a = counter;
                 if (a < NADDS) {
@@ -94,6 +96,7 @@ static void adder(void * unusedpointer, unsigned long addernumber)
                 } else {
                         flag = 0;
                 }
+                /* release lock after finishing operating on counter */
                 lock_release(lock_c);
         }
 
@@ -138,6 +141,9 @@ int maths (int data1, char **data2)
          * INSERT ANY INITIALISATION CODE YOU REQUIRE HERE
          * ********************************************************************
          */
+
+        /* create a lock here to protect critical area */
+        
         lock_c = lock_create("lock_c");
         KASSERT(lock_c != 0);
 
@@ -148,12 +154,6 @@ int maths (int data1, char **data2)
         kprintf("Starting %d adder threads\n", NADDERS);
 
         for (index = 0; index < NADDERS; index++) {
-        /*int
-        thread_fork(const char *name,
-                struct proc *proc,
-                void (*entrypoint)(void *data1, unsigned long data2),
-                void *data1, unsigned long data2)*/
-
                 error = thread_fork("adder thread", NULL, &adder, NULL, index);
 
                 /*
@@ -193,6 +193,7 @@ int maths (int data1, char **data2)
 
         /* clean up the semaphore we allocated earlier */
         sem_destroy(finished);
+        /* clean up the lock allocateed at the beginning */
         return 0;
 }
 

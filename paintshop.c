@@ -82,7 +82,6 @@ void order_paint(struct paintorder *order)
 				break;
 			}
 		}
-		kprintf("\n");
 
 		V(ship_mutex);
 		if(found){
