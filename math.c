@@ -194,6 +194,7 @@ int maths (int data1, char **data2)
         /* clean up the semaphore we allocated earlier */
         sem_destroy(finished);
         /* clean up the lock allocateed at the beginning */
+        lock_destroy(lock_c);
         return 0;
 }
 
