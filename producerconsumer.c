@@ -16,9 +16,7 @@
 	} buffer;
 
 	//typedef int semaphore;
-	static struct semaphore *mutex;
-	static struct semaphore *empty;
-	static struct semaphore *full;
+	static struct semaphore *mutex, *empty, *full;
 
 	/* consumer_receive() is called by a consumer to request more data. It
 	   should block on a sync primitive if no data is available in your
