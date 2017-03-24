@@ -7,7 +7,6 @@
 	/* Declare any variables you need here to keep track of and
 	   synchronise your bounded. A sample declaration of a buffer is shown
 	   below. You can change this if you choose another implementation. */
-	#define TRUE 1
 
 	static struct {
 		struct pc_data elements[BUFFER_SIZE];
