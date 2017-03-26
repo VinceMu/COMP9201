@@ -16,7 +16,7 @@
 
 /* Declare any globals you need here (e.g. locks, etc...) */
 #define ORDER_BUFFER_SIZE 10
-#define SHIP_BUFFER_SIZE 10
+
 
 #define TRUE 1
 #define FALSE 0
@@ -26,21 +26,17 @@
 
 static struct semaphore *order_mutex, *order_empty, *order_full;
 
-static struct semaphore *ship_mutex, *ship_empty, *ship_full;
-
 static struct lock *tints_lock[MAX];
 
 static const char* colours[10] = {"blue","green","yellow","magenta","orange","cyan","black","red","white","brown"};
 
 struct{
-	struct paintorder *elements[ORDER_BUFFER_SIZE];
+	struct paintorder* elements[ORDER_BUFFER_SIZE];
 	int first; /* buf[first%BUFF_SIZE] is the first empty slot  */
 	int last; //buf[last%BUFF_SIZE] is the first full slot
 }order_buffer;
 
-void *ship_buffer[SHIP_BUFFER_SIZE];//ship buffer store the point of order
 
-bool go_home;
 /*
  * **********************************************************************
  * FUNCTIONS EXECUTED BY CUSTOMER THREADS
@@ -55,13 +51,18 @@ bool go_home;
  * until the staff have filled the can with the appropriately tinted
  * paint.
  */
-
 void order_paint(struct paintorder *order)
 {
 
 	P(order_empty);
 	P(order_mutex);
-	order_buffer.elements[order_buffer.first] = order;
+	
+//	order_buffer.elements[order_buffer.first] = order;
+	struct paintorder* po = kmalloc (sizeof (struct paintorder));
+	memcpy (po, order, sizeof (struct paintorder));
+	order_buffer.elements [order_buffer.first] = po;
+	po->lock = order->go_home_flag?NULL:
+		sem_create ("DAVE SENDS REGARDS",0); 
 	order_buffer.first = (order_buffer.first + 1) % ORDER_BUFFER_SIZE;
 	V(order_mutex);
 	V(order_full);
@@ -69,27 +70,10 @@ void order_paint(struct paintorder *order)
 
 	if((*order).go_home_flag == 1)
 		return;
-
-	bool found = FALSE;
-	while(TRUE){
-		P(ship_full);
-		P(ship_mutex);
-
-		for(int i=0;i<SHIP_BUFFER_SIZE;i++){
-			if(ship_buffer[i] == order){
-				ship_buffer[i] = NULL;
-				found = TRUE;
-				break;
-			}
-		}
-
-		V(ship_mutex);
-		if(found){
-			V(ship_empty);
-			break;
-		}else V(ship_full);
-	}
-
+	P(po->lock);
+	sem_destroy (po->lock);	
+	memcpy (&order->can, &po->can, sizeof (struct paintcan));
+	kfree (po);
 }
 
 
@@ -107,6 +91,8 @@ void order_paint(struct paintorder *order)
  * customers. When submitted, it returns a pointer to the order.
  *
  */
+
+
 
 struct paintorder *take_order(void)
 {
@@ -140,9 +126,12 @@ void fill_order(struct paintorder *order)
            holds as described */
         unsigned *list = order->requested_tints;
         /*sorting ascending order*/
+		
         int temp;
         int i,j;
         bool swapped = false;
+		
+
 
         for(i = 0; i < PAINT_COMPLEXITY-1; i++) 
         { 
@@ -185,26 +174,11 @@ void fill_order(struct paintorder *order)
 
 void serve_order(struct paintorder *order)
 {
-	if(go_home)
-		return;
-
-	if((*order).go_home_flag){
-		go_home = 1;
+	if((*order).go_home_flag){	
 		return;
 	}
 
-
-	P(ship_empty);
-	P(ship_mutex);
-
-	for(int i=0;i<ORDER_BUFFER_SIZE;i++){
-		if(ship_buffer[i] == NULL){
-			ship_buffer[i] = order;
-			break;
-		}
-	}
-	V(ship_mutex);
-	V(ship_full);
+	V (order->lock);	
 }
 
 
@@ -231,10 +205,6 @@ void paintshop_open(void)
 	order_empty = sem_create("order_empty", ORDER_BUFFER_SIZE);
 	order_full = sem_create("order_full", 0);
 
-	ship_empty = sem_create("ship_empty", SHIP_BUFFER_SIZE);
-	ship_full = sem_create("ship_full", 0);
-	ship_mutex = sem_create("ship_mutex", 1);
-
 	for (int i = 0; i < MAX; ++i){
     	tints_lock[i] = lock_create(colours[i]);
 	}
@@ -250,14 +220,12 @@ void paintshop_open(void)
 
 void paintshop_close(void)
 {
+	memset (&order_buffer, 0, sizeof (order_buffer));
 	sem_destroy(order_mutex);
 	sem_destroy(order_empty);
 	sem_destroy(order_full);
-	sem_destroy(ship_empty);
-	sem_destroy(ship_full);
-	sem_destroy(ship_mutex);
 	for (int i = 0; i < MAX; ++i)
 	{
-	lock_destroy(tints_lock[i]);
+		lock_destroy(tints_lock[i]);
 	}
 }
