@@ -7,7 +7,6 @@
 	/* Declare any variables you need here to keep track of and
 	   synchronise your bounded. A sample declaration of a buffer is shown
 	   below. You can change this if you choose another implementation. */
-	#define TRUE 1
 
 	static struct {
 		struct pc_data elements[BUFFER_SIZE];
@@ -16,9 +15,7 @@
 	} buffer;
 
 	//typedef int semaphore;
-	static struct semaphore *mutex;
-	static struct semaphore *empty;
-	static struct semaphore *full;
+	static struct semaphore *mutex, *empty, *full;
 
 	/* consumer_receive() is called by a consumer to request more data. It
 	   should block on a sync primitive if no data is available in your
@@ -26,17 +23,17 @@
 
 	struct pc_data consumer_receive(void)
 	{
-			struct pc_data thedata;
+		struct pc_data thedata;
 			 
-			P(full);
-			P(mutex);
+		P(full);
+		P(mutex);
 			
-			thedata = buffer.elements[buffer.first];
-			buffer.first = (buffer.first + 1)%BUFFER_SIZE;
+		thedata = buffer.elements[buffer.first];
+		buffer.first = (buffer.first + 1)%BUFFER_SIZE;
 			
-			V(mutex);
-			V(empty);
-			return thedata;		
+		V(mutex);
+		V(empty);
+		return thedata;		
 	}
 
 
