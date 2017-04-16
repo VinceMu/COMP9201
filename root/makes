@@ -1,0 +1,3 @@
+cd ../asst1-src/kern/compile/ASST1
+bmake & bmake install
+sys161 kernel

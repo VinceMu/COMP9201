@@ -1,0 +1,6 @@
+cd ~/cs3231/asst1-src
+svn commit
+cd ~
+svn diff file:///home/osprj143/repo/asst1/initial file:///home/osprj143/repo/asst1/trunk >~/asst1.diff
+cd ~
+give cs3231 asst1 asst1.diff

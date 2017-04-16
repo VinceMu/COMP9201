@@ -1,0 +1,4 @@
+[ -d /import/ravel/3/z5094935/cs3231/root ] || mkdir /import/ravel/3/z5094935/cs3231/root
+cp kernel /import/ravel/3/z5094935/cs3231/root/kernel-ASST1
+rm -f /import/ravel/3/z5094935/cs3231/root/kernel
+ln -s kernel-ASST1 /import/ravel/3/z5094935/cs3231/root/kernel
