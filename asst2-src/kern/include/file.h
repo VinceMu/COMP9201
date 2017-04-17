@@ -14,6 +14,27 @@
 /*
  * Put your function declarations and data types here ...
  */
+ //https://www.youtube.com/watch?v=4DggLHAOhn8
+struct file {
+	enum {FD_NONE, FD_PIP, FD_INODE} f_type;
+	
+	struct vnode *f_vnode;
+	struct lock *f_lock;	//lock for IO				
+	off_t f_offset;
+	int f_refcount;				//use for garbage collection
+	
+};
+
+int f_open(char *file_dir, int flag, int mode, int *ret_value );
+//int f_clode();
+struct file_table{
+	struct file *file_table[OPEN_MAX];
+};
+
+
+int create_ft();
+int destroy_ft();
+int 
 
 
 
