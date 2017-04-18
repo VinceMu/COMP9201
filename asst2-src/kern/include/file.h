@@ -16,7 +16,7 @@
  */
  //https://www.youtube.com/watch?v=4DggLHAOhn8
 struct file {
-	enum {FD_NONE, FD_PIP, FD_INODE} f_type;
+	enum {RD_ONLY, WR_ONLY, RDWR} f_accmode;
 	
 	struct vnode *f_vnode;
 	struct lock *f_lock;	//lock for IO				
@@ -25,16 +25,18 @@ struct file {
 	
 };
 
-int f_open(char *file_dir, int flag, int mode, int *ret_value );
+int file_open(char *file_dir, int flag, int mode, int *ret_value );
+int file_close();
+
 //int f_clode();
 struct file_table{
-	struct file *file_table[OPEN_MAX];
+	struct file *files[OPEN_MAX];
 };
 
 
-int create_ft();
-int destroy_ft();
-int 
+int create_ft(void);
+int destroy_ft(struct file_table *ft);
+
 
 
 
