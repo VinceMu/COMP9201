@@ -26,7 +26,7 @@ struct file {
 };
 
 int file_open(char *file_dir, int flag, int mode, int *ret_value );
-int file_close();
+//int file_close();
 
 //int f_clode();
 struct file_table{
