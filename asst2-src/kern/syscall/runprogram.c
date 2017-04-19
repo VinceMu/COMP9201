@@ -44,6 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <file.h>
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -79,6 +80,7 @@ runprogram(char *progname)
 	proc_setas(as);
 	as_activate();
 
+	creat_filetable();
 	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
