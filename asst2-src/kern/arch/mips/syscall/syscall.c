@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <file.h>
 
 
 /*
@@ -110,7 +111,7 @@ syscall(struct trapframe *tf)
 		break;
 
 	    case SYS_open:		
-		err = file_open((userptr_t)tf->tf_a0, tf->tf_a1, tf->tf_a2, 
+		err = sys_open((userptr_t)tf->tf_a0, tf->tf_a1, tf->tf_a2, 
          			 &retval);
 		break;
 
