@@ -34,11 +34,11 @@ struct file_table{
 	struct file *files[OPEN_MAX];
 };
 
-int creat_filetable();
+int creat_filetable(void);
 //int destroy_ft(struct file_table *ft);
 int put_into_table(struct file *file, int *fd);
 int file_open(char *file_name, int flag, int mode, int *fd);
-
+int sys_open(userptr_t filename, int flags, int mode, int *retval);
 
 
 

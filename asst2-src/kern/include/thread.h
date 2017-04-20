@@ -64,6 +64,7 @@ typedef enum {
 	S_ZOMBIE,	/* zombie; exited but not yet deleted */
 } threadstate_t;
 
+/*file table*/
 /* Thread structure. */
 struct thread {
 	/*
@@ -107,6 +108,8 @@ struct thread {
 	 */
 
 	/* add more here as needed */
+
+	struct file_table *t_filetable;
 };
 
 /*

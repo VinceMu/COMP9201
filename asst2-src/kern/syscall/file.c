@@ -24,7 +24,7 @@ int file_open(char *file_name, int flag, int mode, int *fd){
 	
 	int err = vfs_open(file_name, flag, mode, &vn);
 	if(err)
-		return err
+		return err;
 	
 	file = kmalloc(sizeof(struct file));
 	if(file == NULL){
@@ -36,8 +36,8 @@ int file_open(char *file_name, int flag, int mode, int *fd){
 	file->f_offset = 0;
 	file->f_refcount = 1;
 	
-	file->of_lock = lock_create("lock");
-	if(file->of_lock == NULL){
+	file->f_lock = lock_create("lock");
+	if(file->f_lock == NULL){
 		vfs_close(vn);
 		return ENOMEM;
 	}
@@ -64,10 +64,10 @@ int put_into_table(struct file *file, int *fd){
 	return EMFILE;
 }	
  
-int creat_filetable(){
+int creat_filetable(void){
 	
 	
-	curthread->t_filetable = kmalloc(sizeof(struct filetable));
+	curthread->t_filetable = kmalloc(sizeof(struct file_table));
 	if(curthread->t_filetable == NULL)
 		return ENOMEM;
 	
@@ -75,10 +75,11 @@ int creat_filetable(){
 	for(int i=0; i<OPEN_MAX; i++)
 		curthread->t_filetable->files[i] = NULL;
 	
-	
+	char dir[5];
+	strcpy(dir, "con:");	
 	
 	for(int i=0; i<3 ;i++){
-		int err = file_open("con:", RDWR, 0, &i);
+		int err = file_open(dir, RDWR, 0, &i);
 		if(err)
 			return err;		
 	}
