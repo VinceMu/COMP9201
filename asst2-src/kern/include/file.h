@@ -9,16 +9,12 @@
  * Contains some file-related maximum length constants
  */
 #include <limits.h>
-
-#define RD_ONLY 0
-#define WR_ONLY 1
-#define RDWR 2
 /*
  * Put your function declarations and data types here ...
  */
  //https://www.youtube.com/watch?v=4DggLHAOhn8
 struct file {
-
+	int f_mode;
 	struct vnode *f_vnode;
 	struct lock *f_lock;	//lock for IO				
 	off_t f_offset;
@@ -39,7 +35,8 @@ int creat_filetable(void);
 int put_into_table(struct file *file, int *fd);
 int file_open(char *file_name, int flag, int mode, int *fd);
 int sys_open(userptr_t filename, int flags, int mode, int *retval);
-
+int sys_write(int fd, userptr_t buf, size_t size, int *retval);
+int search_filetable(int fd, struct file **file);
 
 
 #endif /* _FILE_H_ */

@@ -39,6 +39,7 @@ int file_open(char *file_name, int flag, int mode, int *fd){
 	file->f_lock = lock_create("lock");
 	if(file->f_lock == NULL){
 		vfs_close(vn);
+		kfree(file);
 		return ENOMEM;
 	}
 	
@@ -79,7 +80,7 @@ int creat_filetable(void){
 	strcpy(dir, "con:");	
 	
 	for(int i=0; i<3 ;i++){
-		int err = file_open(dir, RDWR, 0, &i);
+		int err = file_open(dir, O_RDWR, 0, &i);
 		if(err)
 			return err;		
 	}
@@ -96,3 +97,45 @@ int sys_open(userptr_t filename, int flags, int mode, int *retval){
 	
 	return file_open(fname, flags, mode, retval);
 }
+
+int sys_write(int fd, userptr_t buf, size_t size, int *retval){
+	struct iovec iov;
+	struct file *file;
+	int err = search_filetable(fd, &file);
+	if(err)
+		return err;
+	
+	lock_acquire(file->f_lock);
+
+	if(file->f_mode == O_RDONLY){
+		lock_release(file->f_lock);
+		return EBADF;
+	}
+
+	struct uio useruio;
+	uio_kinit(&iov, &useruio, buf, size, file->f_offset, UIO_WRITE);
+	*useruio->uio_space = curthread->t_addrspace;	
+
+	err = VOP_WRITE(file->f_vnode, &useruio);
+	if(err){
+		lock_release(file->f_lock);
+		return err;
+	}
+	file->f_offset = useruio.uio_offset;
+	lock_release(file->f_lock);
+
+	*retval = size - useruio.uio_resid;
+	return 0;
+}
+
+int search_filetable(int fd, struct file **file){
+
+	if(fd<0 ||fd >= OPEN_MAX)
+		return EBADF;
+
+	*file = curthread->t_filetable->files[fd];
+	if(*file == NULL)
+		return EBADF;
+	
+	return 0;
+}	
