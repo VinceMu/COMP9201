@@ -1,0 +1,15 @@
+* open() got fd 1
+* writing test string
+The quick brown fox jumped over the lazy dog.* wrote 0 bytes
+* writing test string again
+The quick brown fox jumped over the lazy dog.* wrote 0 bytes
+* closing file
+**********
+* opening old file "test.file"
+* open() got fd 2
+* reading entire file into buffer 
+* attemping read of 500 bytes
+* read -1 bytes
+* reading complete
+ERROR reading file: Function not implemented
+d

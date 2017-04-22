@@ -98,8 +98,11 @@ int sys_open(userptr_t filename, int flags, int mode, int *retval){
 	return file_open(fname, flags, mode, retval);
 }
 
-int sys_write(int fd, userptr_t buf, size_t size, int *retval){
-	struct iovec iov;
+int sys_write(int fd, userptr_t buf, size_t size){
+
+	struct uio u_io;
+	struct iovec u_iovec;
+
 	struct file *file;
 	int err = search_filetable(fd, &file);
 	if(err)
@@ -112,19 +115,18 @@ int sys_write(int fd, userptr_t buf, size_t size, int *retval){
 		return EBADF;
 	}
 
-	struct uio useruio;
-	uio_kinit(&iov, &useruio, buf, size, file->f_offset, UIO_WRITE);
-	*useruio->uio_space = curthread->t_addrspace;	
-
-	err = VOP_WRITE(file->f_vnode, &useruio);
+	uio_kinit(&u_iovec, &u_io, buf, size, file->f_offset, UIO_WRITE);	
+    u_io.uio_space = curthread->t_addrspace;
+    
+    
+	err = VOP_WRITE(file->f_vnode, &u_io);
 	if(err){
 		lock_release(file->f_lock);
 		return err;
 	}
-	file->f_offset = useruio.uio_offset;
+	file->f_offset += size;
 	lock_release(file->f_lock);
 
-	*retval = size - useruio.uio_resid;
 	return 0;
 }
 
@@ -139,3 +141,16 @@ int search_filetable(int fd, struct file **file){
 	
 	return 0;
 }	
+/*
+void u_uio_kinit(struct iovec *iov, struct uio *u,
+	  userptr_t kbuf, size_t len, off_t pos, enum uio_rw rw){
+	iov->iov_kbase = kbuf;
+	iov->iov_len = len;
+	u->uio_iov = iov;
+	u->uio_iovcnt = 1;
+	u->uio_offset = pos;
+	u->uio_resid = len;
+	u->uio_segflg = UIO_SYSSPACE;
+	u->uio_rw = rw;
+	u->uio_space = curthread->t_addrspace;
+}*/

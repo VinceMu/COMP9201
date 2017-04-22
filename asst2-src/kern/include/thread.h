@@ -108,7 +108,9 @@ struct thread {
 	 */
 
 	/* add more here as needed */
-
+	struct addrspace *t_addrspace; 
+	pid_t t_pid;
+	
 	struct file_table *t_filetable;
 };
 

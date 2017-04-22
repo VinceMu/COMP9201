@@ -148,7 +148,8 @@ thread_create(const char *name)
 	thread->t_iplhigh_count = 1; /* corresponding to t_curspl */
 
 	/* If you add to struct thread, be sure to initialize here */
-
+	thread->t_addrspace = NULL;
+   
 	return thread;
 }
 

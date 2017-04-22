@@ -2,4 +2,4 @@ cd ../asst2-src/kern/compile/ASST2
 bmake
 bmake install
 cd ../../../../root
-sys161 kernel
+#sys161 kernel "p /testbin/asst2"
