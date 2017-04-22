@@ -21,14 +21,10 @@ struct file {
 	int f_refcount;				//use for garbage collection
 	
 };
+struct file *file_table[OPEN_MAX];
 
 
-//int file_close();
 
-//int f_clode();
-struct file_table{
-	struct file *files[OPEN_MAX];
-};
 int file_open(char *file_dir, int flag, int mode, int *ret_value );
 int creat_filetable(void);
 //int destroy_ft(struct file_table *ft);
