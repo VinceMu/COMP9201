@@ -25,14 +25,11 @@ struct file *file_table[OPEN_MAX];
 
 
 
-int file_open(char *file_dir, int flag, int mode, int *ret_value );
-int creat_filetable(void);
-//int destroy_ft(struct file_table *ft);
-int put_into_table(struct file *file, int *fd);
-int file_open(char *file_name, int flag, int mode, int *fd);
-int sys_open(userptr_t filename, int flags, int mode, int *retval);
-int sys_write(int fd, userptr_t buf, size_t size);
-int search_filetable(int fd, struct file **file);
+int sys_open(userptr_t filename, int flags, int mode, int *retfd);
+int sys_write(int fd, userptr_t buf, size_t len, int *retval);
+int sys_read(int fd, userptr_t buf, size_t size, int *retval);
+int sys_close(int fd);
+
 /*void u_uio_kinit(struct iovec *iov, struct uio *u, userptr_t skbuf, size_t len, off_t pos, enum uio_rw rw);
 */
 #endif /* _FILE_H_ */
