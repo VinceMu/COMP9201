@@ -50,8 +50,6 @@ int filetable_init (struct thread* nt){
 
 int sys_open(const char *filename, int flags, mode_t mode, int *retval) {
 
-    //kprintf("Inside OPEN\n");
-
     int result=0, index = 3;
     struct vnode *vn;
     char *kbuf;
@@ -59,9 +57,9 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval) {
     kbuf = (char *) kmalloc(sizeof(char)*PATH_MAX);
     result = copyinstr((const_userptr_t)filename,kbuf, PATH_MAX, &len);
     if(result) {
-        //kprintf("OPEN- copyinstr failed- %d\n",result);
         kfree(kbuf);
-        return result;
+        *retval = -1;
+        return EFAULT;
     }
 
     while (curthread->fdtable[index] != NULL ) {
@@ -69,30 +67,31 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval) {
     }
 
     if(index >= OPEN_MAX) {
-        //kprintf("OPEN- index>128\n");
         kfree(kbuf);
+        *retval = -1;
         return ENFILE;
     }
 
     if(flags>2 || flags<0){
         kfree(kbuf);
+        *retval = -1;
         return EINVAL;
     }
 
 
     curthread->fdtable[index] = (struct fdesc *)kmalloc(sizeof(struct fdesc*));
     if(curthread->fdtable[index] == NULL) {
-        //kprintf("OPEN- filetable at given index is null\n");
         kfree(kbuf);
+        *retval = -1;
         return ENFILE;
     }
 
     result = vfs_open(kbuf,flags,mode,&vn);
     if(result) {
-        //kprintf("OPEN- vfs_open failed\n");
         kfree(kbuf);
         kfree(curthread->fdtable[index]);
         curthread->fdtable[index] = NULL;
+        *retval = -1;
         return result;
     }
 
@@ -104,28 +103,22 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval) {
     curthread->fdtable[index]->lk= lock_create(kbuf);
     *retval = index;
     kfree(kbuf);
-    //kprintf("Outside OPEN, Returned Index is %d, Flags- %d\n", index,curthread->fdtable[index]->flags);
     return 0;
 }
 
 int sys_close(int filehandle, int *retval) {
 
-    //kprintf("Inside CLOSE\n");
-
     if(filehandle >= OPEN_MAX || filehandle < 0) {
-        //kprintf("CLOSE- Bad filehandle\n");
         *retval = -1;
         return EBADF;
     }
 
     if(curthread->fdtable[filehandle] == NULL) {
-        //kprintf("CLOSE- filetable at given index is null\n");
         *retval = -1;
         return EBADF;
     }
 
     if(curthread->fdtable[filehandle]->vn == NULL) {
-        //kprintf("CLOSE- vnode in the given filetable index is null\n");
         *retval = -1;
         return EBADF;
     }
@@ -141,26 +134,26 @@ int sys_close(int filehandle, int *retval) {
 
     *retval = 0;
     return 0;
-    //kprintf("Outside CLOSE\n");
 }
 
 int sys_read(int filehandle, void *buf, size_t size, int *retval) {
 
     if(buf == NULL) {
+        *retval = -1;
         return EFAULT;
     }
 
     if(filehandle >= OPEN_MAX || filehandle < 0) {
-        //kprintf("READ- Bad Filehandle\n");
+        *retval = -1;
         return EBADF;
     }
 
     if(curthread->fdtable[filehandle] == NULL) {
-        //kprintf("READ- Filetable at given index is null\n");
+        *retval = -1;
         return EBADF;
     }
     if (curthread->fdtable[filehandle]->flags != O_RDONLY && curthread->fdtable[filehandle]->flags != O_RDWR) {
-        //kprintf("READ- Wrong Flag\n");
+        *retval = -1;
         return EBADF;
     }
 
@@ -169,16 +162,16 @@ int sys_read(int filehandle, void *buf, size_t size, int *retval) {
     char *kbuf = (char*)kmalloc(size);
 
     if(kbuf == NULL) {
-        kprintf("READ- kbuf is null\n");
+        *retval = -1;
         return EFAULT;
     }
+
     lock_acquire(curthread->fdtable[filehandle]->lk);
     uio_kinit(&iov, &ku, (void*)kbuf, size ,curthread->fdtable[filehandle]->offset,UIO_READ);
     
-    //kprintf("before- VOP_READ Failed\n");
     int result = VOP_READ(curthread->fdtable[filehandle]->vn, &ku);
     if(result) {
-        //kprintf("READ- VOP_READ Failed\n");
+        *retval = -1;
         kfree(kbuf);
         lock_release(curthread->fdtable[filehandle]->lk);
         return result;
@@ -186,9 +179,14 @@ int sys_read(int filehandle, void *buf, size_t size, int *retval) {
 
             
     curthread->fdtable[filehandle]->offset = ku.uio_offset;
-    copyout((const void *)kbuf, (userptr_t)buf, size);
+    result = copyout((const void *)kbuf, (userptr_t)buf, size);
+    if(result) {
+        *retval = -1;
+        kfree(kbuf);
+        lock_release(curthread->fdtable[filehandle]->lk);
+        return result;
+    }
     *retval = size - ku.uio_resid;
-    //kprintf("Outside READ, Bytes read- %d\n", (size - ku.uio_resid));
     kfree(kbuf);
     lock_release(curthread->fdtable[filehandle]->lk);
     return 0;
@@ -201,21 +199,17 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
         *retval = -1;
         return EFAULT;
     }
-    //kprintf("Inside WRITE, Filehandle- %d, Size- %d\n",filehandle, size);
     if(filehandle >= OPEN_MAX || filehandle < 0) {
-        //kprintf("WRITE- Bad Filehandle\n");
         *retval = -1;
         return EBADF;
     }
 
     if(curthread->fdtable[filehandle] == NULL) {
-        //kprintf("WRITE- Filetable at given index is null\n");
         *retval = -1;
         return EBADF;
     }
 
     if (curthread->fdtable[filehandle]->flags == O_RDONLY) {
-        //kprintf("WRITE- Wrong Flag\n");
         *retval = -1;
         return EBADF;
     }
@@ -225,7 +219,6 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
     struct uio ku;
     char *kbuf = (char*)kmalloc(size);
     if(kbuf == NULL) {
-        //kprintf("READ- kbuf is null\n");
         *retval = -1;
         return EINVAL;
     }
@@ -234,7 +227,6 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
 
     int result = copyin((const_userptr_t)buf,kbuf,size);
     if(result) {
-        //kprintf("WRITE- copyin Failed\n");
         kfree(kbuf);
         lock_release(curthread->fdtable[filehandle]->lk);
         *retval = -1;
@@ -245,7 +237,6 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
 
     result = VOP_WRITE(curthread->fdtable[filehandle]->vn, &ku);
     if(result) {
-        //kprintf("WRITE- VOP_WRITE Failed\n");
         kfree(kbuf);
         lock_release(curthread->fdtable[filehandle]->lk);
         *retval = -1;
@@ -262,7 +253,7 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
 }
 
 int sys_lseek(int filehandle, off_t pos, int whence, int *retval, int *retval1) {
-    
+
     if(filehandle >= OPEN_MAX || filehandle < 0) {
         *retval = -1;
         return EBADF;
