@@ -146,6 +146,10 @@ int sys_close(int filehandle, int *retval) {
 
 int sys_read(int filehandle, void *buf, size_t size, int *retval) {
 
+    if(buf == NULL) {
+        return EFAULT;
+    }
+
     if(filehandle >= OPEN_MAX || filehandle < 0) {
         //kprintf("READ- Bad Filehandle\n");
         return EBADF;
@@ -164,8 +168,8 @@ int sys_read(int filehandle, void *buf, size_t size, int *retval) {
     struct uio ku;
     char *kbuf = (char*)kmalloc(size);
 
-    if(kbuf == NULL || buf == NULL) {
-        //kprintf("READ- kbuf is null\n");
+    if(kbuf == NULL) {
+        kprintf("READ- kbuf is null\n");
         return EFAULT;
     }
     lock_acquire(curthread->fdtable[filehandle]->lk);
@@ -193,6 +197,10 @@ int sys_read(int filehandle, void *buf, size_t size, int *retval) {
 
 int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
 
+    if(buf == NULL) {
+        *retval = -1;
+        return EFAULT;
+    }
     //kprintf("Inside WRITE, Filehandle- %d, Size- %d\n",filehandle, size);
     if(filehandle >= OPEN_MAX || filehandle < 0) {
         //kprintf("WRITE- Bad Filehandle\n");
@@ -218,6 +226,7 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
     char *kbuf = (char*)kmalloc(size);
     if(kbuf == NULL) {
         //kprintf("READ- kbuf is null\n");
+        *retval = -1;
         return EINVAL;
     }
 
@@ -228,6 +237,7 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
         //kprintf("WRITE- copyin Failed\n");
         kfree(kbuf);
         lock_release(curthread->fdtable[filehandle]->lk);
+        *retval = -1;
         return result;
     }
 
@@ -252,16 +262,18 @@ int sys_write(int filehandle, const void *buf, size_t size, int *retval) {
 }
 
 int sys_lseek(int filehandle, off_t pos, int whence, int *retval, int *retval1) {
-    int result = 0;
-
+    
     if(filehandle >= OPEN_MAX || filehandle < 0) {
+        *retval = -1;
         return EBADF;
     }
 
     if(curthread->fdtable[filehandle] == NULL) {
+        *retval = -1;
         return EBADF;
     }
 
+    int result = 0;
     off_t offset;
     struct stat statbuf;
 
@@ -269,6 +281,7 @@ int sys_lseek(int filehandle, off_t pos, int whence, int *retval, int *retval1) 
 
     if(!VOP_ISSEEKABLE(curthread->fdtable[filehandle]->vn)){
         lock_release(curthread->fdtable[filehandle]->lk);
+        *retval = -1;
         return ESPIPE;
     }
     switch(whence){
@@ -284,6 +297,7 @@ int sys_lseek(int filehandle, off_t pos, int whence, int *retval, int *retval1) 
             result = VOP_STAT(curthread->fdtable[filehandle]->vn, &statbuf);
             if(result) {
                 lock_release(curthread->fdtable[filehandle]->lk);
+                *retval = -1;
                 return result;
             }
             offset = statbuf.st_size + pos;
@@ -291,11 +305,13 @@ int sys_lseek(int filehandle, off_t pos, int whence, int *retval, int *retval1) 
         
         default:
             lock_release(curthread->fdtable[filehandle]->lk);
+            *retval = -1;
             return EINVAL;
             break;
     }
 
     if(offset < (off_t)0) {
+        *retval = -1;
         lock_release(curthread->fdtable[filehandle]->lk);
         return EINVAL;
     }
