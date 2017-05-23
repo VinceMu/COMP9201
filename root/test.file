@@ -1,6 +1,4 @@
-* open() got fd 1
-* writing test string
-The quick brown fox jumped over the lazy dog.* wrote 0 bytes
+The quick brown fox jumped over the lazy dog.The quick brown fox jumped over the lazy dog.te 0 bytes
 * writing test string again
 The quick brown fox jumped over the lazy dog.* wrote 0 bytes
 * closing file

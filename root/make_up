@@ -1,4 +1,4 @@
-cd ../asst1-src/kern/compile/ASST1
+cd ../asst3-src/kern/compile/ASST3
 bmake 
 bmake install
 cd ../../../../root
