@@ -124,6 +124,16 @@ vaddr_t alloc_kpages(unsigned int npages)
 
 void free_kpages(vaddr_t addr)
 {
-        (void) addr;
+        paddr_t temp = KVADDR_TO_PADDR(addr);
+        int i = temp / PAGE_SIZE;       /* get the index of frame table */
+
+        if(i >= total_pages)
+                return;
+
+        frame_table[i]->vaild = true;
+        frame_table[i]->write = true;
+        frame_table[i]->next_empty = first_avalibe;
+        first_avalibe = *frame_table[i];
+
 }
 
