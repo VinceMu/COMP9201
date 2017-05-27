@@ -35,7 +35,7 @@
  *
  * You'll probably want to add stuff here.
  */
-
+void frametable_init(void);
 
 #include <machine/vm.h>
 
