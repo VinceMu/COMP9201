@@ -73,6 +73,7 @@ void page_table_init(void){
 paddr_t look_up_page_table(vaddr_t a, unint32_t pid){
         int total_frame = get_ramsize() / PAGE_SIZE;
         int index = a % total_frame;
+        paddr_t offset = a - PAGE_SIZE * index;
 
         /* search for valid virtual address */
         while(page_table[index]->pid != pid){
@@ -82,8 +83,15 @@ paddr_t look_up_page_table(vaddr_t a, unint32_t pid){
         }
 
         paddr_t paddr = page_table[index].frame_addr;
-        up_data_TLB();
-        return paddr;
+
+        /* update tlb */
+        spl = splhigh();
+        ehi = faultaddress;
+        elo = paddr;
+        tlb_random(ehi, elo);
+        splx(spl);
+
+        return paddr + offset;
 }
 
 int page_table_insert(vaddr_t v_addr, paddr_t p_addr){
@@ -104,7 +112,7 @@ int page_table_insert(vaddr_t v_addr, paddr_t p_addr){
         }
 
         /* do not have empty external page table entry */
-        if(i == total_frame*2 -1){
+        if(i >= total_frame*2 -1){
                 return ENOMEM;
         }
 
@@ -112,9 +120,15 @@ int page_table_insert(vaddr_t v_addr, paddr_t p_addr){
         temp.next_entry = empty_page_table;
         page_table[empty_page_table].frame_addr = alloc_kpages(1);
         page_table[empty_page_table].next_entry = 0;
-        page_table[empty_page_table].page_addr = v_addr;
+        page_table[empty_page_table].page_addr = v_addr % PAGE_SIZE;
         page_table[empty_page_table].pid = pid;
 
+        /* update tlb */
+        spl = splhigh();
+        ehi = v_addr % PAGE_SIZE;
+        elo = page_table[empty_page_table].frame_addr;
+        tlb_random(ehi, elo);
+        splx(spl);
         return 0;
 }
 
@@ -141,23 +155,18 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         as = proc_getas();
         uint32_t pid = as->pid;
 
-        int err = look_up_page_table(faultaddress, pid);
-        if(err){
-                err = look_up_region(faultaddress, as);
-        }
+        /* if tlb miss, search in the page table */
+        paddr_t p_addr = look_up_page_table(faultaddress, pid);
+        if(p_addr == 0){
+                /* if not in the page table, look up in the region. */
+                p_addr = look_up_region(faultaddress, as);
+                if(p_addr == 0)
+                        return EFAULT;
+                else
+                        return 0;
+        } else
+                return 0;
 
-        vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
-        paddr_t paddr;
-
-
-        int i;
-        uint32_t ehi, elo;
-        struct addrspace *as;
-        int spl;
-
-        panic("vm_fault hasn't been written yet\n");
-
-        return EFAULT;
 }
 
 /*
