@@ -29,10 +29,10 @@ int total_pages;
  *   0xA000 0000    ______________
  *                 |              |
  *                 |              |
- *                 |              |
- *                 |______________|<--- first frametable entry's physical address.
+ *                 |______________|
  *                 |______________|<--- frametable and first free pointer is here.
- *                 | OS161 kernel |ls
+ *                 |______________|<--- page table is here.
+ *                 | OS161 kernel |
  *   0x0000 0000   |______________|
  *
  *   1. first get the location where the frame table should be placed.
@@ -82,7 +82,6 @@ void frametable_init(void) {
                 frame_table[i].p_addr = i * PAGE_SIZE;
         }
 
-        first_empty = first_empty_pointer/PAGE_SIZE + 1;
 
         if(first_empty >= total_pages){
                 panic("NO MORE MEMORY\n");
@@ -119,9 +118,9 @@ vaddr_t alloc_kpages(unsigned int npages)
                         panic("ERROR empty frame number.\n");
                 }
 
+                //TODO: check if this frame can be used(valid is true).
 
                 addr = frame_table[first_empty].p_addr;
-                //TODO:????
 
                 frame_table[first_empty].write = true;
                 frame_table[first_empty].valid = false;

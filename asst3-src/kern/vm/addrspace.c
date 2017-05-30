@@ -49,6 +49,10 @@
  *
  */
 
+/*
+ *    as_create - create a new empty address space
+ *    and initialized it.
+ */
 struct addrspace *
 as_create(void)
 {
@@ -59,10 +63,17 @@ as_create(void)
                 return NULL;
         }
 
+
         /*
          * Initialize as needed.
          */
 
+        as->as_vbase1 = 0;
+        as->as_npages1 = 0;
+        as->as_vbase2 = 0;
+        as->as_npages2 = 0;
+        as->as_stackpbase = 0;
+        as->pid = (uint32_t) as;
 
         return as;
 }
@@ -82,6 +93,19 @@ as_copy(struct addrspace *old, struct addrspace **ret)
          */
 
         (void)old;
+        newas->as_vbase1 = old->as_vbase1;
+        newas->as_npages1 = old->as_npages1;
+        newas->as_vbase2 = old->as_vbase2;
+        newas->as_npages2 = old->as_npages2;
+        newas->pid = curthread->pid;
+
+        /*  allocate physical memory. */
+        if (as_prepare_load(newas)) {
+                as_destroy(newas);
+                return ENOMEM;
+        }
+
+        //TODO:???
 
         *ret = newas;
         return 0;
@@ -108,12 +132,16 @@ as_activate(void)
                  * Kernel thread without an address space; leave the
                  * prior address space in place.
                  */
+                kprintf("as_activatge address space NULL.\n");
                 return;
         }
+        int spl;
 
-        /*
-         * Write this.
-         */
+        /* flush all tlb entries */
+        spl = splhigh();
+        for (int i = 0; i < NUM_TLB; i++)
+                tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+        splx(spl);
 }
 
 void
@@ -124,6 +152,7 @@ as_deactivate(void)
          * anything. See proc.c for an explanation of why it (might)
          * be needed.
          */
+
 }
 
 /*
