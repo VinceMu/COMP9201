@@ -70,8 +70,8 @@ struct addrspace {
     /*          last bit is read/write, second last bit is load bit
      * record read only    read and write      load
      *          00000          00001           00010  */
-        char wrl;
-        pid_t pid;
+        char permission;
+        struct addrspace *pid;
 
 
 #endif

@@ -49,10 +49,6 @@
  *
  */
 
-/*
- *    as_create - create a new empty address space
- *    and initialized it.
- */
 struct addrspace *
 as_create(void)
 {
@@ -63,7 +59,6 @@ as_create(void)
                 return NULL;
         }
 
-
         /*
          * Initialize as needed.
          */
@@ -73,7 +68,8 @@ as_create(void)
         as->as_vbase2 = 0;
         as->as_npages2 = 0;
         as->as_stackpbase = 0;
-        as->pid = (uint32_t) as;
+        as->pid = as;
+        as->permission = 0;
 
         return as;
 }
@@ -97,7 +93,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         newas->as_npages1 = old->as_npages1;
         newas->as_vbase2 = old->as_vbase2;
         newas->as_npages2 = old->as_npages2;
-        newas->pid = curthread->pid;
+        newas->pid =  newas;
 
         /*  allocate physical memory. */
         if (as_prepare_load(newas)) {
@@ -117,7 +113,13 @@ as_destroy(struct addrspace *as)
         /*
          * Clean up as needed.
          */
-
+        as->as_vbase1 = 0;
+        as->as_npages1 = 0;
+        as->as_vbase2 = 0;
+        as->as_npages2 = 0;
+        as->as_stackpbase = 0;
+        as->pid =  0;
+        as->permission = 0;
         kfree(as);
 }
 
@@ -132,16 +134,13 @@ as_activate(void)
                  * Kernel thread without an address space; leave the
                  * prior address space in place.
                  */
-                kprintf("as_activatge address space NULL.\n");
+
                 return;
         }
-        int spl;
 
-        /* flush all tlb entries */
-        spl = splhigh();
-        for (int i = 0; i < NUM_TLB; i++)
-                tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-        splx(spl);
+        /*
+         * Write this.
+         */
 }
 
 void
@@ -153,6 +152,7 @@ as_deactivate(void)
          * be needed.
          */
 
+        as_activate();
 }
 
 /*
