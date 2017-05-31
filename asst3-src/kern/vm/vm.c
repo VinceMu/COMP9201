@@ -45,11 +45,12 @@ int page_table_insert(vaddr_t v_addr);
 struct page_table_entry *page_table=0;
 
 
-static struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
 
 
 
 void page_table_init(void){
+        struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
+
         spinlock_acquire(&page_table_lock);
 
         paddr_t page_table_size = ram_getsize();
@@ -116,6 +117,10 @@ int look_up_region(vaddr_t vaddr, struct addrspace *as){
 
 
 int page_table_insert(vaddr_t v_addr){
+        struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
+        spinlock_acquire(&page_table_lock);
+
+
         int empty_page_table = 0;
         int total_frame = ram_getsize() / PAGE_SIZE;
         int index = v_addr % total_frame;
@@ -150,6 +155,7 @@ int page_table_insert(vaddr_t v_addr){
         as = proc_getas();
 
         page_table[empty_page_table].pid = as;
+        spinlock_release(&page_table_lock);
 
         /* update tlb */
         int spl = splhigh();
@@ -165,6 +171,7 @@ void vm_bootstrap(void)
         /* Initialise VM sub-system.  You probably want to initialise your 
            frame table here as well.
         */
+        page_table_init();
         frametable_init();
 }
 
@@ -175,6 +182,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 panic("vm_fault: read only.\n");
                 return EFAULT;
         }
+        static struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
+
         spinlock_acquire(&page_table_lock);
 
 

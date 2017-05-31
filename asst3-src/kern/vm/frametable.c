@@ -82,7 +82,7 @@ void frametable_init(void) {
                 frame_table[i].p_addr = i * PAGE_SIZE;
         }
 
-
+        first_empty = first_empty_pointer / PAGE_SIZE + 1;
         if(first_empty >= total_pages){
                 panic("NO MORE MEMORY\n");
         }
@@ -102,20 +102,23 @@ void frametable_init(void) {
 
 vaddr_t alloc_kpages(unsigned int npages)
 {
+
         /*
          * IMPLEMENT ME.  You should replace this code with a proper
          *                implementation.
          */
-//        kprintf("alloc pages\n");
+        struct spinlock frame_locker = SPINLOCK_INITIALIZER;
+        spinlock_acquire(&frame_locker);
         paddr_t addr;
-        spinlock_acquire(&stealmem_lock);
+//        kprintf("alloc pages, first empty is %d\n" ,first_empty);
 
         if(frame_table == 0){   /* if frame table does not init */
                 addr = ram_stealmem(npages);
         } else {
                 if(first_empty >= total_pages){
-                        spinlock_release(&stealmem_lock);
-                        panic("ERROR empty frame number.\n");
+                        spinlock_release(&frame_locker);
+                        kprintf("ERROR empty frame number.\n");
+                        return 1;
                 }
 
                 //TODO: check if this frame can be used(valid is true).
@@ -125,13 +128,9 @@ vaddr_t alloc_kpages(unsigned int npages)
                 frame_table[first_empty].write = true;
                 frame_table[first_empty].valid = false;
                 first_empty = frame_table[first_empty].next_empty;
-//                for(int i = 0; i < total_pages; i++){
-//                        kprintf("%d, %d\n", i, frame_table[i].next_empty);
-//                }
-//                kprintf("%d, %d\n", first_empty, frame_table[first_empty].next_empty);
 
         }
-        spinlock_release(&stealmem_lock);
+        spinlock_release(&frame_locker);
 
         if(addr == 0)
                 return 0;
@@ -141,7 +140,9 @@ vaddr_t alloc_kpages(unsigned int npages)
 
 void free_kpages(vaddr_t addr)
 {
-//        kprintf("free k pages\n");
+        struct spinlock frame_locker = SPINLOCK_INITIALIZER;
+        spinlock_acquire(&frame_locker);
+
         paddr_t temp = KVADDR_TO_PADDR(addr);
         int i = temp / PAGE_SIZE;       /* get the index of frame table */
 
@@ -152,6 +153,11 @@ void free_kpages(vaddr_t addr)
         frame_table[i].write = true;
         frame_table[i].next_empty = first_empty;
         first_empty = i;
+//        kprintf("free %d, next is %d \n", first_empty, frame_table[i].next_empty);
+//        kprintf("phy addr %u\n", frame_table[i].p_addr);
+        spinlock_release(&frame_locker);
+
+
 
 }
 
