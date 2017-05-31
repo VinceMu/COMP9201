@@ -40,6 +40,19 @@
 
 struct vnode;
 
+/* region: the region of process */
+
+#define RG_READ_MASK = 1
+#define RG_WRITE_MASK = 2
+#define RG_EXE_MASK = 4
+
+struct region{
+    vaddr_t vbase;
+    size_t npages;
+    int permission;
+    struct region* next;
+};
+
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -59,18 +72,14 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
         /* Put stuff here for your VM system */
-        vaddr_t as_vbase1;
-        paddr_t as_pbase1;
-        size_t as_npages1;
-        vaddr_t as_vbase2;
-        paddr_t as_pbase2;
-        size_t as_npages2;
+        int num_of_region;
+    /* the list of region */
+        struct region* first_region;
         paddr_t as_stackpbase;
 
     /*          last bit is read/write, second last bit is load bit
      * record read only    read and write      load
      *          00000          00001           00010  */
-        char permission;
         struct addrspace *pid;
 
 
