@@ -9,44 +9,8 @@
 #include <spl.h>
 
 /* Place your page table functions here */
-
-/*
- * page table is a hashed list. the number of entries is 2
- * times of physical frames. Half of them is use for hashed index,
- * another half is used to deal will hash collision.
- *
- *  _____________             _______________
- * |             |           |               |
- * | hashed index|  ----->   |physical frame |
- * |_____________|           |_______________|
- * |             |
- * |external link|
- * |_____________|
- *
- * page table entry:
- *     __________________________________________________________
- *    | frame address | page address | PID | index of next entry |
- *     ——————————————————————————————————————————————————————————
- */
-
-
-struct page_table_entry{
-        paddr_t frame_addr;
-        vaddr_t page_addr;
-        struct addrspace *pid;
-        int next_entry;
-};
-
-void frametable_init(void);
-int look_up_page_table(vaddr_t a, struct addrspace *pid);
-void page_table_init(void);
-int look_up_region(vaddr_t vaddr, struct addrspace *as);
-int page_table_insert(vaddr_t v_addr);
 struct page_table_entry *page_table=0;
-
-
-
-
+int total_size;
 
 void page_table_init(void){
         struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
@@ -54,14 +18,21 @@ void page_table_init(void){
         spinlock_acquire(&page_table_lock);
 
         paddr_t page_table_size = ram_getsize();
-        int total_size = (page_table_size / PAGE_SIZE) * 2; /* page table has 2 times of frame table */
-        int total_page = total_size * (sizeof(struct page_table_entry) + PAGE_SIZE) / PAGE_SIZE;
+
+        total_size = (page_table_size / PAGE_SIZE) * 2; /* the number of page table is 2 times more than physical frames */
+        int total_page = total_size * sizeof(struct page_table_entry) / PAGE_SIZE + 1;
 
         //allocate the space page table needed.
         page_table = (struct page_table_entry*) PADDR_TO_KVADDR(ram_stealmem(total_page));
         if(page_table == 0){
                 panic("ERROR page table init.\n");
         }
+
+        for(int i=0; i< total_size; i++){
+                page_table[i].frame_addr = 0;
+                page_table[i].next_entry = 0;
+        }
+
         spinlock_release(&page_table_lock);
 }
 
@@ -75,25 +46,32 @@ void page_table_init(void){
  */
 int look_up_page_table(vaddr_t a, struct addrspace *pid){
 
-        int total_frame = ram_getsize() / PAGE_SIZE;
-        int index = a % total_frame;
-        paddr_t offset = a - PAGE_SIZE * index;
+        int index = a / total_size;
 
         /* search for valid virtual address */
-        while(page_table[index].pid != pid){
+        while(page_table[index].pid != pid || page_table[index].page_addr != (a &  TLBHI_VPAGE)){
                 index = page_table[index].next_entry;
+                /* can not find valid page entry */
                 if(index == 0)
                         return -1;
         }
 
         paddr_t paddr = page_table[index].frame_addr;
 
+        /* if current page table entry does not valid */
+        if(paddr == 0 || page_table[index].pid != pid)
+                return -1;
+
+//        struct spinlock tlb_locker = SPINLOCK_INITIALIZER;
+//        spinlock_acquire(&tlb_locker);
+
         /* update tlb */
         int spl = splhigh();
-        uint32_t ehi = a;
-        uint32_t elo = paddr + offset;
-        tlb_random(ehi, elo);
+        uint32_t ehi = a & TLBHI_VPAGE;
+        uint32_t elo = paddr & TLBLO_PPAGE;
+        tlb_random(ehi, elo | TLBLO_VALID | TLBLO_DIRTY);
         splx(spl);
+//        spinlock_release(&tlb_locker);
 
         return 0;
 }
@@ -103,30 +81,29 @@ int look_up_page_table(vaddr_t a, struct addrspace *pid){
  */
 
 int look_up_region(vaddr_t vaddr, struct addrspace *as){
-        if(vaddr < as->as_vbase1 + as->as_npages1*PAGE_SIZE
-           && vaddr > as->as_vbase1 ){
-                page_table_insert(vaddr);
-        }else if(vaddr < as->as_vbase2 + as->as_npages2 * PAGE_SIZE &&
-                vaddr > as->as_npages2){
-                page_table_insert(vaddr);
-        }else{
-                return -1;
+
+        bool ret = -1;
+        for(int i=0; i < as->num_regions; i++){
+                if(vaddr >= as->first_region[i].vbase && vaddr <= as->first_region[i].vbase + as->first_region[i].npages * PAGE_SIZE ){
+                        page_table_insert(vaddr);
+                        ret = 0;
+                        break;
+                }
         }
-        return 0;
+
+
+        return ret;
 }
 
 
 int page_table_insert(vaddr_t v_addr){
-        struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
-        spinlock_acquire(&page_table_lock);
 
 
         int empty_page_table = 0;
-        int total_frame = ram_getsize() / PAGE_SIZE;
-        int index = v_addr % total_frame;
-        struct page_table_entry temp = page_table[index];
-        while(temp.next_entry != 0){
-                temp = page_table[temp.next_entry];
+        int total_frame = total_size / 2;
+        int index = v_addr / total_frame;
+        while(page_table[index].next_entry != 0){
+                index = page_table[index].next_entry;
         }
 
         /* find empty slot of external linking table */
@@ -138,7 +115,7 @@ int page_table_insert(vaddr_t v_addr){
                 }
         }
 
-        /* do not have empty external page table entry */
+        /* i out of range */
         if(i >= total_frame*2 -1){
                 return ENOMEM;
         }
@@ -146,23 +123,26 @@ int page_table_insert(vaddr_t v_addr){
         KASSERT(empty_page_table != 0);
 
         /* insert data into page_table */
-        temp.next_entry = empty_page_table;
+        page_table[index].next_entry = empty_page_table;
         page_table[empty_page_table].frame_addr = alloc_kpages(1);
         page_table[empty_page_table].next_entry = 0;
-        page_table[empty_page_table].page_addr = v_addr % PAGE_SIZE;
+        page_table[empty_page_table].page_addr = v_addr - v_addr % PAGE_SIZE;
 
         struct addrspace *as;
         as = proc_getas();
 
-        page_table[empty_page_table].pid = as;
-        spinlock_release(&page_table_lock);
+//        struct spinlock tlb_locker = SPINLOCK_INITIALIZER;
+//        spinlock_acquire(&tlb_locker);
 
         /* update tlb */
         int spl = splhigh();
-        uint32_t ehi = v_addr % PAGE_SIZE;
-        uint32_t elo = page_table[empty_page_table].frame_addr;
-        tlb_random(ehi, elo);
+        uint32_t ehi = v_addr & TLBHI_VPAGE;
+        uint32_t elo = page_table[empty_page_table].frame_addr & TLBLO_PPAGE;
+        tlb_random(ehi, elo | TLBLO_VALID | TLBLO_DIRTY);
         splx(spl);
+        page_table[empty_page_table].pid = as;
+//        spinlock_release(&tlb_locker);
+
         return 0;
 }
 

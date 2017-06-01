@@ -63,20 +63,17 @@ as_create(void)
          * Initialize as needed.
          */
 
-        as->as_vbase1 = 0;
-        as->as_npages1 = 0;
-        as->as_vbase2 = 0;
-        as->as_npages2 = 0;
+        as->first_region = NULL;
+        as->num_regions = 0;
         as->as_stackpbase = 0;
         as->pid = as;
-        as->permission = 0;
-
         return as;
 }
 
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
+
         struct addrspace *newas;
 
         newas = as_create();
@@ -89,21 +86,36 @@ as_copy(struct addrspace *old, struct addrspace **ret)
          */
 
         (void)old;
-        newas->as_vbase1 = old->as_vbase1;
-        newas->as_npages1 = old->as_npages1;
-        newas->as_vbase2 = old->as_vbase2;
-        newas->as_npages2 = old->as_npages2;
-        newas->pid =  newas;
-
-        /*  allocate physical memory. */
-        if (as_prepare_load(newas)) {
-                as_destroy(newas);
-                return ENOMEM;
-        }
-
-        //TODO:???
 
         *ret = newas;
+        return 0;
+//        struct addrspace *newas;
+//
+//        newas = as_create();
+//        if (newas==NULL) {
+//                return ENOMEM;
+//        }
+//
+//        /*
+//         * Write this.
+//         */
+//
+//        (void)old;
+//        newas->as_vbase1 = old->as_vbase1;
+//        newas->as_npages1 = old->as_npages1;
+//        newas->as_vbase2 = old->as_vbase2;
+//        newas->as_npages2 = old->as_npages2;
+//        newas->pid =  newas;
+//
+//        /*  allocate physical memory. */
+//        if (as_prepare_load(newas)) {
+//                as_destroy(newas);
+//                return ENOMEM;
+//        }
+//
+//        //TODO:???
+//
+//        *ret = newas;
         return 0;
 }
 
@@ -113,13 +125,13 @@ as_destroy(struct addrspace *as)
         /*
          * Clean up as needed.
          */
-        as->as_vbase1 = 0;
-        as->as_npages1 = 0;
-        as->as_vbase2 = 0;
-        as->as_npages2 = 0;
-        as->as_stackpbase = 0;
-        as->pid =  0;
-        as->permission = 0;
+//        as->as_vbase1 = 0;
+//        as->as_npages1 = 0;
+//        as->as_vbase2 = 0;
+//        as->as_npages2 = 0;
+//        as->as_stackpbase = 0;
+//        as->pid =  0;
+//        as->permission = 0;
         kfree(as);
 }
 
@@ -141,6 +153,12 @@ as_activate(void)
         /*
          * Write this.
          */
+        int i, spl;
+        spl = splhigh();
+        for (i=0; i<NUM_TLB; i++) {
+                tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+        }
+        splx(spl);
 }
 
 void
@@ -169,17 +187,38 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
                  int readable, int writeable, int executable)
 {
-        /*
-         * Write this.
-         */
+        if(as == NULL){
+                return ENOSYS;
+        }
 
-        (void)as;
-        (void)vaddr;
-        (void)memsize;
-        (void)readable;
-        (void)writeable;
-        (void)executable;
-        return ENOSYS; /* Unimplemented */
+
+        struct region* new_region = (struct region*) kmalloc(sizeof(struct region));
+        new_region->vbase = vaddr - vaddr % PAGE_SIZE;
+        new_region->npages = DIVROUNDUP(memsize, PAGE_SIZE);
+        new_region->read = readable;
+        new_region->exe = executable;
+        new_region->write = writeable;
+        new_region->next = NULL;
+
+     //   size_t npages;
+
+        if(as->first_region == NULL){
+                as->first_region = new_region;
+                as->num_regions++;
+                return 0;
+        }
+
+        struct region* temp_region = as->first_region;
+
+        /* find last region in region list */
+        while(temp_region->next != NULL){
+                temp_region = temp_region->next;
+        }
+
+        temp_region->next = new_region;
+        as->num_regions++;
+
+        return 0;
 }
 
 int
@@ -211,8 +250,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
          * Write this.
          */
 
-        (void)as;
-
+        KASSERT(as->as_stackpbase != 0);
         /* Initial user-level stack pointer */
         *stackptr = USERSTACK;
 

@@ -30,12 +30,39 @@
 #ifndef _VM_H_
 #define _VM_H_
 
+#include <addrspace.h>
 /*
- * VM system-related definitions.
+ * page table is a hashed list. the number of entries is 2
+ * times of physical frames. Half of them is use for hashed index,
+ * another half is used to deal will hash collision.
  *
- * You'll probably want to add stuff here.
+ *  _____________             _______________
+ * |             |           |               |
+ * | hashed index|  ----->   |physical frame |
+ * |_____________|           |_______________|
+ * |             |
+ * |external link|
+ * |_____________|
+ *
+ * page table entry:
+ *     __________________________________________________________
+ *    | frame address | page address | PID | index of next entry |
+ *     ——————————————————————————————————————————————————————————
  */
+
+
+struct page_table_entry{
+    paddr_t frame_addr;
+    vaddr_t page_addr;
+    struct addrspace *pid;
+    int next_entry;
+};
+
 void frametable_init(void);
+int look_up_page_table(vaddr_t a, struct addrspace *pid);
+void page_table_init(void);
+int look_up_region(vaddr_t vaddr, struct addrspace *as);
+int page_table_insert(vaddr_t v_addr);
 
 #include <machine/vm.h>
 

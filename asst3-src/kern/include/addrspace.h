@@ -49,7 +49,9 @@ struct vnode;
 struct region{
     vaddr_t vbase;
     size_t npages;
-    int permission;
+    int write;
+    int read;
+    int exe;
     struct region* next;
 };
 
@@ -71,18 +73,12 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        /* Put stuff here for your VM system */
-        int num_of_region;
-    /* the list of region */
+        int num_regions;
+
+        /* the list of region */
         struct region* first_region;
-        paddr_t as_stackpbase;
-
-    /*          last bit is read/write, second last bit is load bit
-     * record read only    read and write      load
-     *          00000          00001           00010  */
         struct addrspace *pid;
-
-
+        paddr_t as_stackpbase;
 #endif
 };
 
