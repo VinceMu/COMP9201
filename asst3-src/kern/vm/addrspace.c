@@ -48,6 +48,9 @@
  * part of the VM subsystem.
  *
  */
+#define USER_STACKPAGES 16
+
+void destroy_region(struct addrspace* as, struct region* region);
 
 struct addrspace *
 as_create(void)
@@ -119,19 +122,29 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         return 0;
 }
 
+
+void destroy_region(struct addrspace* as, struct region* region){
+        if (region != NULL) {
+                as->num_regions--;
+                destroy_region(as, region->next);
+                kfree(region);
+        }
+}
+
 void
 as_destroy(struct addrspace *as)
 {
         /*
          * Clean up as needed.
          */
-//        as->as_vbase1 = 0;
-//        as->as_npages1 = 0;
-//        as->as_vbase2 = 0;
-//        as->as_npages2 = 0;
-//        as->as_stackpbase = 0;
-//        as->pid =  0;
-//        as->permission = 0;
+        destroy_region(as, as->first_region);
+
+
+        as->first_region = NULL;
+        as->num_regions = 0;
+        as->as_stackpbase = 0;
+        as->pid = 0;
+
         kfree(as);
 }
 
@@ -194,7 +207,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
         struct region* new_region = (struct region*) kmalloc(sizeof(struct region));
         new_region->vbase = vaddr - vaddr % PAGE_SIZE;
-        new_region->npages = DIVROUNDUP(memsize, PAGE_SIZE);
+        new_region->npages = (memsize + PAGE_SIZE - 1) / PAGE_SIZE ;
         new_region->read = readable;
         new_region->exe = executable;
         new_region->write = writeable;
@@ -250,7 +263,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
          * Write this.
          */
 
-        KASSERT(as->as_stackpbase != 0);
+        as_define_region(as, USERSTACK - USER_STACKPAGES * PAGE_SIZE , USER_STACKPAGES * PAGE_SIZE, 1, 1, 1);
         /* Initial user-level stack pointer */
         *stackptr = USERSTACK;
 

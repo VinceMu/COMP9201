@@ -89,6 +89,7 @@ void frametable_init(void) {
 
         spinlock_release(&stealmem_lock);
 
+
 //        kprintf("frame init end\n");
 }
 

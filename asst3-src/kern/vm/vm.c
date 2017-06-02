@@ -49,7 +49,7 @@ int look_up_page_table(vaddr_t a, struct addrspace *pid){
         int index = a / total_size;
 
         /* search for valid virtual address */
-        while(page_table[index].pid != pid || page_table[index].page_addr != (a &  TLBHI_VPAGE)){
+        while(page_table[index].pid != pid || page_table[index].page_addr != (a - a % PAGE_SIZE)){
                 index = page_table[index].next_entry;
                 /* can not find valid page entry */
                 if(index == 0)
@@ -68,7 +68,8 @@ int look_up_page_table(vaddr_t a, struct addrspace *pid){
         /* update tlb */
         int spl = splhigh();
         uint32_t ehi = a & TLBHI_VPAGE;
-        uint32_t elo = paddr & TLBLO_PPAGE;
+        uint32_t elo = KVADDR_TO_PADDR(paddr)| TLBLO_DIRTY | TLBLO_VALID;
+
         tlb_random(ehi, elo | TLBLO_VALID | TLBLO_DIRTY);
         splx(spl);
 //        spinlock_release(&tlb_locker);
@@ -82,17 +83,23 @@ int look_up_page_table(vaddr_t a, struct addrspace *pid){
 
 int look_up_region(vaddr_t vaddr, struct addrspace *as){
 
-        bool ret = -1;
-        for(int i=0; i < as->num_regions; i++){
-                if(vaddr >= as->first_region[i].vbase && vaddr <= as->first_region[i].vbase + as->first_region[i].npages * PAGE_SIZE ){
+
+        if(as->first_region->next != NULL){
+                if(vaddr >= as->first_region->vbase && vaddr <= as->first_region->vbase + as->first_region->npages * PAGE_SIZE ){
                         page_table_insert(vaddr);
-                        ret = 0;
-                        break;
+                        return 0;
                 }
         }
 
-
-        return ret;
+        struct region *temp = as->first_region->next;
+        while(temp != 0){
+                if(vaddr >= temp->vbase && vaddr <= temp->vbase + temp->npages * PAGE_SIZE ){
+                        page_table_insert(vaddr);
+                        return 0;
+                }
+                temp = temp->next;
+        }
+        return -1;
 }
 
 
@@ -106,9 +113,11 @@ int page_table_insert(vaddr_t v_addr){
                 index = page_table[index].next_entry;
         }
 
+
         /* find empty slot of external linking table */
+
         int i;
-        for(i=total_frame; i < total_frame*2; i++){
+        for(i=total_frame; i < total_frame*2 ; i++){
                 if(page_table[i].frame_addr == 0){
                         empty_page_table = i;
                         break;
@@ -120,10 +129,15 @@ int page_table_insert(vaddr_t v_addr){
                 return ENOMEM;
         }
 
+
+
         KASSERT(empty_page_table != 0);
 
         /* insert data into page_table */
         page_table[index].next_entry = empty_page_table;
+        if(index < total_frame){
+                empty_page_table = index;
+        }
         page_table[empty_page_table].frame_addr = alloc_kpages(1);
         page_table[empty_page_table].next_entry = 0;
         page_table[empty_page_table].page_addr = v_addr - v_addr % PAGE_SIZE;
@@ -132,12 +146,12 @@ int page_table_insert(vaddr_t v_addr){
         as = proc_getas();
 
 //        struct spinlock tlb_locker = SPINLOCK_INITIALIZER;
-//        spinlock_acquire(&tlb_locker);
+//        spinlock_acquire      (&tlb_locker);
 
         /* update tlb */
         int spl = splhigh();
         uint32_t ehi = v_addr & TLBHI_VPAGE;
-        uint32_t elo = page_table[empty_page_table].frame_addr & TLBLO_PPAGE;
+        uint32_t elo = KVADDR_TO_PADDR(page_table[empty_page_table].frame_addr)| TLBLO_DIRTY | TLBLO_VALID;
         tlb_random(ehi, elo | TLBLO_VALID | TLBLO_DIRTY);
         splx(spl);
         page_table[empty_page_table].pid = as;
