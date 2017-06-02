@@ -103,11 +103,7 @@ void frametable_init(void) {
 
 vaddr_t alloc_kpages(unsigned int npages)
 {
-
-        /*
-         * IMPLEMENT ME.  You should replace this code with a proper
-         *                implementation.
-         */
+        
         struct spinlock frame_locker = SPINLOCK_INITIALIZER;
         spinlock_acquire(&frame_locker);
         paddr_t addr;

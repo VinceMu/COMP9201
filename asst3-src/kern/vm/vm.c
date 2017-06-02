@@ -62,8 +62,6 @@ int look_up_page_table(vaddr_t a, struct addrspace *pid){
         if(paddr == 0 || page_table[index].pid != pid)
                 return -1;
 
-//        struct spinlock tlb_locker = SPINLOCK_INITIALIZER;
-//        spinlock_acquire(&tlb_locker);
 
         /* update tlb */
         int spl = splhigh();
@@ -72,7 +70,6 @@ int look_up_page_table(vaddr_t a, struct addrspace *pid){
 
         tlb_random(ehi, elo | TLBLO_VALID | TLBLO_DIRTY);
         splx(spl);
-//        spinlock_release(&tlb_locker);
 
         return 0;
 }
@@ -86,7 +83,10 @@ int look_up_region(vaddr_t vaddr, struct addrspace *as){
 
         if(as->first_region->next != NULL){
                 if(vaddr >= as->first_region->vbase && vaddr <= as->first_region->vbase + as->first_region->npages * PAGE_SIZE ){
-                        page_table_insert(vaddr);
+                        for (unsigned int i = 0; i<as->first_region->npages; i++ )
+                                page_table_insert(vaddr + i * PAGE_SIZE);
+
+
                         return 0;
                 }
         }
@@ -94,7 +94,8 @@ int look_up_region(vaddr_t vaddr, struct addrspace *as){
         struct region *temp = as->first_region->next;
         while(temp != 0){
                 if(vaddr >= temp->vbase && vaddr <= temp->vbase + temp->npages * PAGE_SIZE ){
-                        page_table_insert(vaddr);
+                        for (unsigned int i = 0; i<as->first_region->npages; i++ )
+                                page_table_insert(vaddr + i * PAGE_SIZE);
                         return 0;
                 }
                 temp = temp->next;
@@ -138,15 +139,17 @@ int page_table_insert(vaddr_t v_addr){
         if(index < total_frame){
                 empty_page_table = index;
         }
+
+        /* alloc physical frame */
         page_table[empty_page_table].frame_addr = alloc_kpages(1);
+        bzero((void *)page_table[empty_page_table].frame_addr,  PAGE_SIZE);
+
         page_table[empty_page_table].next_entry = 0;
         page_table[empty_page_table].page_addr = v_addr - v_addr % PAGE_SIZE;
 
         struct addrspace *as;
         as = proc_getas();
 
-//        struct spinlock tlb_locker = SPINLOCK_INITIALIZER;
-//        spinlock_acquire      (&tlb_locker);
 
         /* update tlb */
         int spl = splhigh();
@@ -155,7 +158,6 @@ int page_table_insert(vaddr_t v_addr){
         tlb_random(ehi, elo | TLBLO_VALID | TLBLO_DIRTY);
         splx(spl);
         page_table[empty_page_table].pid = as;
-//        spinlock_release(&tlb_locker);
 
         return 0;
 }
@@ -176,10 +178,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 panic("vm_fault: read only.\n");
                 return EFAULT;
         }
-        static struct spinlock page_table_lock = SPINLOCK_INITIALIZER;
-
-        spinlock_acquire(&page_table_lock);
-
 
         struct addrspace *as;
         as = proc_getas();
@@ -187,19 +185,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         /* if tlb miss, search in the page table */
         int err = look_up_page_table(faultaddress, pid);
+
         if(err != 0){
                 /* if not in the page table, look up in the region. */
-                err = look_up_region(faultaddress, as);
-                if(err != 0) {
-                        spinlock_release(&page_table_lock);
-                        return EFAULT;
-                }
-                else{
-                        spinlock_release(&page_table_lock);
-                        return 0;
-                }
+                err = look_up_region(faultaddress, pid);
+                if(err != 0)
+                        return EINVAL;
         }
-        spinlock_release(&page_table_lock);
         return 0;
 }
 

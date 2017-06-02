@@ -87,38 +87,22 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         /*
          * Write this.
          */
+        struct region* old_temp = old->first_region;
+        struct region* new_temp = newas->first_region;
 
-        (void)old;
+        while(old_temp != NULL){
+                as_define_region(newas, old_temp->vbase, old_temp->npages * PAGE_SIZE,
+                                 old_temp->read, old_temp->write,old_temp->exe);
+                old_temp = old_temp->next;
+                new_temp = new_temp->next;
+
+                memmove((void *)new_temp->vbase,
+                        (void *)old_temp->vbase,
+                        PAGE_SIZE*old_temp->npages);
+        }
+
 
         *ret = newas;
-        return 0;
-//        struct addrspace *newas;
-//
-//        newas = as_create();
-//        if (newas==NULL) {
-//                return ENOMEM;
-//        }
-//
-//        /*
-//         * Write this.
-//         */
-//
-//        (void)old;
-//        newas->as_vbase1 = old->as_vbase1;
-//        newas->as_npages1 = old->as_npages1;
-//        newas->as_vbase2 = old->as_vbase2;
-//        newas->as_npages2 = old->as_npages2;
-//        newas->pid =  newas;
-//
-//        /*  allocate physical memory. */
-//        if (as_prepare_load(newas)) {
-//                as_destroy(newas);
-//                return ENOMEM;
-//        }
-//
-//        //TODO:???
-//
-//        *ret = newas;
         return 0;
 }
 
@@ -186,6 +170,14 @@ as_deactivate(void)
         as_activate();
 }
 
+
+static
+void
+as_zero_region(vaddr_t vaddr, int npages)
+{
+        bzero((void *) vaddr, npages * PAGE_SIZE);
+}
+
 /*
  * Set up a segment at virtual address VADDR of size MEMSIZE. The
  * segment in memory extends from VADDR up to (but not including)
@@ -206,8 +198,10 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
 
         struct region* new_region = (struct region*) kmalloc(sizeof(struct region));
+
+
         new_region->vbase = vaddr - vaddr % PAGE_SIZE;
-        new_region->npages = (memsize + PAGE_SIZE - 1) / PAGE_SIZE ;
+        new_region->npages = (memsize + vaddr % PAGE_SIZE + PAGE_SIZE - 1 ) / PAGE_SIZE ;
         new_region->read = readable;
         new_region->exe = executable;
         new_region->write = writeable;
@@ -234,6 +228,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         return 0;
 }
 
+
+
 int
 as_prepare_load(struct addrspace *as)
 {
@@ -241,7 +237,11 @@ as_prepare_load(struct addrspace *as)
          * Write this.
          */
 
-        (void)as;
+        struct region *temp = as->first_region;
+        while(temp->next != NULL){
+                as_zero_region(temp->vbase, temp->npages);
+                temp = temp->next;
+        }
         return 0;
 }
 
