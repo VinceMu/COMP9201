@@ -159,4 +159,15 @@ int execvp(const char *prog, char *const *args); /* calls execv */
 char *getcwd(char *buf, size_t buflen);		/* calls __getcwd */
 time_t time(time_t *seconds);			/* calls __time */
 
+/* UNSW versions of mmap() and munmap()
+ * This are simplified compared to the standard version on UNIX
+ * You should implement this version as this is what we expect to test.
+ */
+
+#define PROT_READ 1
+#define PROT_WRITE 2
+
+void *mmap(size_t length, int prot, int fd, off_t offset);
+int munmap(void *addr);
+
 #endif /* _UNISTD_H_ */

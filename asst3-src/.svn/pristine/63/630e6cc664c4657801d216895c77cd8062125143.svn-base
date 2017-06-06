@@ -1,0 +1,88 @@
+frame table:
+struct frame_table_entry{
+    struct addrspace* as;
+    paddr_t p_addr;                //physical address
+    vaddr_t v_addr;                //virtual address
+    bool valid;                 //valid bit
+    bool write;                 //writable bit
+    int  next_empty; //link list record next available entry.
+};
+
+
+/* frametable initialisation.
+ *                 physical memory
+ *   0xA000 0000    ______________
+ *                 |              |
+ *                 |              |
+ *                 |______________|
+ *                 |______________|<--- frametable and first free pointer is here.
+ *                 |______________|<--- page table is here.
+ *                 | OS161 kernel |
+ *   0x0000 0000   |______________|
+ *
+ *   1. first get the location where the frame table should be placed.
+ *              call ram_getfirstfree();
+ *
+ *   2. calculate how much pages should be use, and allocate exact number of
+ *      space for the frame table entries.
+ *              num of pages = total_physical_memory_size / each_page_size
+ *
+ *   3. initialized each entry.
+ */
+ 
+ 
+ 
+ page table:
+ /*
+ * page table is a hashed list. the number of entries is 2
+ * times of physical frames. Half of them is use for hashed index,
+ * another half is used to deal will hash collision.
+ *
+ *  _____________                _______________
+ * |             |              |               |
+ * | hashed index|  --map--->   |physical frame |
+ * |_____________|              |_______________|
+ * |             |
+ * |external link|
+ * |_____________|
+ *
+ * page table entry:
+ *     __________________________________________________________
+ *    | frame address | page address | PID | index of next entry |
+ *     ——————————————————————————————————————————————————————————
+ */
+ struct page_table_entry{
+    paddr_t frame_addr;
+    vaddr_t page_addr;
+    struct addrspace *pid;
+    int next_entry;
+};
+
+
+
+addrspace:
+struct addrspace {
+        int num_regions;
+
+        /* the list of region */
+        struct region* first_region;
+        struct addrspace *pid;
+        paddr_t as_stackpbase;
+};
+
+region:
+struct region{
+    vaddr_t vbase;
+    size_t npages;
+    int write;
+    int read;
+    int exe;
+    struct region* next;
+};
+ 
+-------------------------------------------------------------------------
+when vm_fault happend, program check page table first, if no entry is avalid,
+check the if the virtual is the the region of address space. if it faild, return
+EINVAL. If success, allocate physical memory and insert this address into page table,
+write address into TLB.
+

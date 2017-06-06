@@ -49,12 +49,11 @@
 
 
 /*
- * Important, both as part of the system call API and for system
- * behavior.
+ * Important, both as part of the system call API and for system behavior.
  *
  * 255 for NAME_MAX and 1024 for PATH_MAX are conventional. ARG_MAX
- * should be at least 16K (UNSW Note: We keep it smaller, see note
- * below). In real systems it often runs to 256K or more.
+ * should be at least 16K. In real systems it often runs to 256K or
+ * more.
  */
 
 /* Longest filename (without directory) not including null terminator */
@@ -63,13 +62,12 @@
 /* Longest full path name */
 #define __PATH_MAX      1024
 
+/* Max bytes for an exec function (should be at least 16K) */
 /*
- * UNSW: Max bytes for an exec function. This is artificially really
- * low to avoid needing a multi-page frame allocator later in the
- * VM assignment.
+ * UNSW Note: We use max 4K to avoid the frametable allocator needing
+ * to deal with greater than 4K allocations
  */
 #define __ARG_MAX       (4 * 1024)
-
 
 /*
  * Important for system behavior, but not a big part of the API.
@@ -84,14 +82,14 @@
 /* Max value for a process ID (change this to match your implementation) */
 #define __PID_MAX       32767
 
-/*
- * UNSW: Max open files per process. Again, this is artificially low
- * at 32. A more reasonable number is 128.
- */
-#define __OPEN_MAX      32
+/* Max open files per process */
+#define __OPEN_MAX      128
 
 /* Max bytes for atomic pipe I/O -- see description in the pipe() man page */
 #define __PIPE_BUF      512
+
+/* Max number of processes at once. */
+#define __PROCS_MAX       128
 
 
 /*
